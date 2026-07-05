@@ -1,0 +1,30 @@
+
+smiley :: @const_slice(
+    0b11000011,
+    0b10000001,
+    0b00100100,
+    0b00100100,
+    0b00000000,
+    0b00100100,
+    0b10011001,
+    0b11000011,
+);
+
+start :: fn() void = {
+
+}
+
+update :: fn() void #use(W4) = {
+    m.drawColors = 2;
+    text("Hello from Franca!", 10, 10);
+
+    if m.gamepad&[0].bit_and(BUTTON._1) != 0 {
+        m.drawColors = 4;
+    };
+    
+    blit(smiley, 76, 76, 8, 8, BLIT._1BPP);
+    text("Press X to blink", 16, 90);
+}
+
+W4 :: import("@/wasm4.fr");
+driver :: fn(v: *ImportVTable) void = W4'build(v, @source_file_name(), 1024);

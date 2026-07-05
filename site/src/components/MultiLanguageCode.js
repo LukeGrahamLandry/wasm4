@@ -8,6 +8,7 @@ const classNameToLanguage = {
     "language-c3": "c3",
     "language-cpp": "c",
     "language-d": "d",
+    "language-franca": "franca",
     "language-grain": "grain",
     "language-lua": "nelua",
     "language-nelua": "nelua",

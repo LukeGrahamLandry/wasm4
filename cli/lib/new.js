@@ -30,6 +30,11 @@ const HELP = {
         build: "make",
         cart: "cart.wasm",
     },
+    franca: {
+        name: "Franca",
+        build: "franca cart.fr",
+        cart: "target/cart.wasm",
+    },
     go: {
         name: "Go",
         build: "make",

@@ -1,0 +1,190 @@
+// https://wasm4.org/docs
+// https://github.com/LukeGrahamLandry/franca/tree/787415be03b2278554aad5c95b29fd4247f7b70c
+
+SCREEN_SIZE :: 160;
+FONT_SIZE :: 8;
+
+m :: bit_cast_unchecked(i64, *Memory, 0);
+Memory :: @struct {
+    _padding: Array(u8, 4);
+    palette: Array(u32, 4);
+    drawColors: u16;
+    gamepad: Array(u8, 4);
+    mouseX: i16;
+    mouseY: i16;
+    mouseButtons: u8;
+    systemFlags: u8;
+    netplay: u8;
+    _reserved: Array(u8, 127);
+    framebuffer: Array(u8, SCREEN_SIZE*SCREEN_SIZE/4);
+    _user: Array(u8, 58976);
+};
+
+BUTTON :: @struct {
+    _1 :: 1;
+    _2 :: 2;
+    LEFT :: 16;
+    RIGHT :: 32;
+    UP :: 64;
+    DOWN :: 128;
+};
+
+MOUSE :: @struct {
+    LEFT :: 1;
+    RIGHT :: 2;
+    MIDDLE :: 4;
+};
+
+SYSTEM :: @struct {
+    PRESERVE_FRAMEBUFFER :: 1;
+    HIDE_GAMEPAD_OVERLAY :: 2;
+};
+
+blit :: fn(sprite: []u8, x: i32, y: i32, width: u32, height: u32, flags: u32) void = {
+    blit :: fn(a: u32, b: i32, c: i32, d: u32, e: u32, f: u32) void #import("env");
+    blit(u8.int_from_ptr(sprite.ptr).trunc(), x, y, width, height, flags);
+}
+blit_sub :: fn(sprite: []u8, x: i32, y: i32, width: u32, height: u32, src_x: u32, src_y: u32, stride: u32, flags: u32) void = {
+    blitSub :: fn(a: u32, b: i32, c: i32, d: u32, e: u32, f: u32, g: u32, h: u32, i: u32) void #import("env");
+    blitSub(u8.int_from_ptr(sprite.ptr).trunc(), x, y, width, height, src_x, src_y, stride, flags);
+}
+
+BLIT :: @struct {
+    _2BPP :: 1;
+    _1BPP :: 0;
+    FLIP_X :: 2;
+    FLIP_Y :: 4;
+    ROTATE :: 8;
+};
+
+line :: fn(x1: i32, y1: i32, x2: i32, y2: i32) void #import("env");
+oval :: fn(x: i32, y: i32, width: u32, height: u32) void #import("env");
+rect :: fn(x: i32, y: i32, width: u32, height: u32) void #import("env");
+text :: fn(src: []u8, x: i32, y: i32) void = {
+    textUtf8 :: fn(a: u32, b: u32, c: i32, d: i32) void #import("env");
+    textUtf8(u8.int_from_ptr(src.ptr).trunc(), src.len.trunc(), x, y);
+}
+vline :: fn(x: i32, y: i32, len: u32) void #import("env");
+hline :: fn(x: i32, y: i32, len: u32) void #import("env");
+
+tone :: fn(frequency: u32, duration: u32, volume: u32, flags: u32) void #import("env");
+
+TONE :: @struct {
+    PULSE1 :: 0;
+    PULSE2 :: 1;
+    TRIANGLE :: 2;
+    NOISE :: 3;
+    MODE1 :: 0;
+    MODE2 :: 4;
+    MODE3 :: 8;
+    MODE4 :: 12;
+    PAN_LEFT :: 16;
+    PAN_RIGHT :: 32;
+    NOTE_MODE :: 64;
+};
+
+diskr :: fn(dest: []u8) []u8 = {
+    diskr :: fn(p: u32, l: u32) u32 #import("env");
+    l := diskr(u8.int_from_ptr(dest.ptr).trunc(), dest.len.trunc());
+    dest.slice(0, l.zext())
+}
+diskw :: fn(src: []u8) i64 = {
+    diskw :: fn(p: u32, l: u32) u32 #import("env");
+    diskw(u8.int_from_ptr(src.ptr).trunc(), src.len.trunc()).zext()
+}
+
+trace :: fn(src: Str) void = {
+    traceUtf8 :: fn(p: u32, l: u32) void #import("env");
+    traceUtf8(u8.int_from_ptr(src.ptr).trunc(), src.len.trunc());
+}
+
+build :: fn(vtable: *ImportVTable, input_path: Str, stack_size: i64) void = {
+    unsafe := true;
+    out_path := "target/cart.wasm";
+    make_dirs_or_crash(out_path.pop_path_segment());
+    
+    Ir :: import("@/backend/ir.fr");
+    target: Ir.Goal = (
+        arch = .wasm32, os = .linux, type = .Exe, 
+        wasm_shared_memory = false,
+        wasm = temp().boxed(Ir.WasmLayout, (
+            global_base = offset_of(Memory, ._user),
+            stack_size = stack_size,
+            import_memory = ("env", "memory"),
+            null_import = false,
+            embed_import_names = false,
+            exceptions = false,
+        )),
+    );
+    
+    opts := vtable.default_build_options();
+    opts.retain_function_names = false;
+    opts.debug_info = false;
+    if unsafe {
+        it := opts.safety_checks&;
+        it.insert(.Bounds, false);
+        it.insert(.DebugAssertions, false);
+        it.insert(.InvalidTag, false);
+    };
+    
+    src := @tfmt("""
+        #include_std("lib/core.fr");
+        
+        cart :: import("@/%");
+        start :: cart.start;
+        update :: cart.update;
+        real_panic :: @as(@Fn(Str) Never) panic;
+        host_panic :: fn(msg: Str) Never = {
+            import("@/wasm4.fr")'trace(msg);
+            loop(=> ());
+        };
+        gsbft :: resolve_overload(get_stack_base_for_tls, void, i64, @source_location);
+    """, input_path);
+    
+    fr := new_with_src(vtable, src, "-", opts);
+    fr := vtable.with(fr);
+
+    M :: Ir.Module;
+    m := @uninitialized M;
+    init_default_module_dyn(m&, fr.vtable, target);
+    
+    find_fn :: fn(name) => fr.get_unique_named(name).unwrap();
+    get_fn :: fn(fid) => fr'vtable'get_function(fr.data, fid);
+    mangle :: fn(fid) => m&.intern(fr'vtable'mangle_name(fr.data, fid));
+    
+    find_fn("real_panic").get_fn()[] = find_fn("host_panic").get_fn()[];
+    
+    // make sure it shows up in the module so can detect it and warn if you make a mistake. 
+    gsbft := find_fn("gsbft");
+    get_fn(gsbft).set_flag(.NoInline);
+    
+    start := find_fn("start");
+    update := find_fn("update");
+    set_name(update, "update", true);
+    set_name(start, "start", true);
+    
+    set_name :: fn(dest: FuncId, src: Str, export: bool) => 
+        declare_alias(m = m&, target = mangle(dest), alias = @ref @as(Ir.Lnk) (
+            id = m&.intern(src),
+            export = export,
+        ));
+    
+    fns := @slice(update, start);
+    wasm := fr'vtable'emit_qbe_included(M.raw_from_ptr(m&), fr&, fns, .ExportWithNames);
+    wasm := wasm.concat(temp());
+    #use("@/lib/sys/fs.fr");
+    write_entire_file_or_crash(out_path, wasm);
+    
+    use_symbol(m&, mangle(gsbft)) { s |
+        // TODO: would be nice if i could show the callgraph that made it reachable
+        @if(s.size != 0) eprintln("warning: cannot access StaticTls on wasm4 target");
+    };
+    
+    fr'vtable'drop_qbe_module(M.raw_from_ptr(m&));
+    fr'vtable'destroy_compiler(fr.data);
+    
+    if cli_args().contains(fn(it) => it[] == "-wasm-opt") {
+        #use("@/lib/sys/subprocess.fr");
+        @assert run_cmd_blocking("wasm-opt", @slice("-Oz", "--zero-filled-memory", "--enable-bulk-memory", out_path, "-o", out_path));
+    };
+}

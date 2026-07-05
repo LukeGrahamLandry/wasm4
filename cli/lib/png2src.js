@@ -44,6 +44,16 @@ immutable ubyte[] {{name}} = [ {{bytes}} ];
 
 {{/sprites}}`,
 
+franca:
+    `{{#sprites}}
+// {{name}}
+{{name}}_width :: {{width}};
+{{name}}_height :: {{height}};
+{{name}}_flags :: {{flags}}; // {{flagsHumanReadable}}
+{{name}} :: @const_slice( {{bytes}} );
+
+{{/sprites}}`,
+
     go:
         `{{#sprites}}
 // {{name}}

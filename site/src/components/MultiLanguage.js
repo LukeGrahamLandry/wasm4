@@ -11,6 +11,7 @@ const names = {
     "c": "C / C++",
     "c3": "C3",
     "d": "D",
+    "franca": "Franca",
     "go": "Go",
     "grain": "Grain",
     "nelua": "Nelua",

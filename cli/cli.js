@@ -4,7 +4,7 @@ const { program, Option } = require("commander");
 const pkg = require('./package.json');
 const { supportedIconExtensions } = require('./lib/utils/icon');
 
-const LANGS = ["assemblyscript", "c", "c3", "cpp", "d", "go", "grain", "nelua", "nim", "odin", "penne", "porth", "roc", "roland", "rust", "wat", "zig"];
+const LANGS = ["assemblyscript", "c", "c3", "cpp", "d", "franca", "go", "grain", "nelua", "nim", "odin", "penne", "porth", "roc", "roland", "rust", "wat", "zig"];
 const langOption = new Option("--lang <lang>", "Use the given language")
     .env("W4_LANG")
     .choices(LANGS);
@@ -27,6 +27,8 @@ function requireLang (opts) {
         return "cpp";
     } else if (opts.d) {
         return "d";
+    } else if (opts.franca) {
+        return "franca";
     } else if (opts.go) {
         return "go";
     } else if (opts.grain) {
@@ -64,6 +66,7 @@ const blankProject = (cmd) =>
         .option("--c3", "Create C3 project (Shorthand for --lang c3)")
         .option("--cpp", "Create C++ project (Shorthand for --lang cpp)")
         .option("--d", "Create D project (Shorthand for --lang d)")
+        .option("--franca", "Create Franca project (Shorthand for --lang franca)")
         .option("--go", "Create Go project (Shorthand for --lang go)")
         .option("--grain", "Create Grain project (Shorthand for --lang grain)")
         .option("--nelua", "Create Nelua project (Shorthand for --lang nelua)")
@@ -153,6 +156,7 @@ program.command("png2src <images...>")
     .option("--c, --cpp", "Generate C/C++ source (Shorthand for --lang c)")
     .option("--c3", "Generate C3 source (Shorthand for --lang c3)")
     .option("--d", "Generate D source (Shorthand for --lang d)")
+    .option("--franca", "Generate Franca source (Shorthand for --lang franca)")
     .option("--go", "Generate Go source (Shorthand for --lang go)")
     .option("--grain", "Generate Grain source (Shorthand for --lang grain)")
     .option("--nelua", "Generate Nelua source (Shorthand for --lang nelua)")

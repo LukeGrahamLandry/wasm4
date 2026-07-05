@@ -32,6 +32,11 @@ function start (opts) {
         buildParams = ["cart.rol", "--wasm4"];
         buildOutput = "cart.wasm";
 
+    } else if (fs.existsSync("cart.fr")) {
+        buildCommand = "franca";
+        buildParams = ["cart.fr"];
+        buildOutput = "target/cart.wasm";
+
     } else if (fs.existsSync("Makefile")) {
         buildCommand = "make";
         buildParams = ["--silent", "DEBUG=1"];
@@ -78,7 +83,7 @@ function start (opts) {
             return skip
         } else {
             // Only trigger on source file changes
-            return /\.(c|cpp|d|go|gr|h|nelua|nim|odin|pn|porth|rol|rs|ts|wat|zig)$/.test(file);
+            return /\.(c|cpp|d|fr|go|gr|h|nelua|nim|odin|pn|porth|rol|rs|ts|wat|zig)$/.test(file);
         }
     }
     watch("./", {recursive: true, filter: watchFilter}, (event, file) => {
